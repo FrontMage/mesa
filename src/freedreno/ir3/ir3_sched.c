@@ -503,6 +503,13 @@ check_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 
       for (unsigned i = 0; i < ir->baryfs_count; i++) {
          struct ir3_instruction *baryf = ir->baryfs[i];
+         /* The block scheduler cannot make progress on an input from a
+          * successor block.  Such inputs are handled when that block is
+          * scheduled; if inputs could not all be moved to the start block,
+          * legalize disables early input release on gen5+.
+          */
+         if (baryf->block != instr->block)
+            continue;
          if (baryf->flags & IR3_INSTR_UNUSED)
             continue;
          if (!is_scheduled(baryf)) {
