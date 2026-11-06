@@ -148,9 +148,12 @@ fallback_gralloc_get_buffer_info(struct u_gralloc *gralloc,
    out->strides[0] = stride;
 
 #ifdef HAS_FREEDRENO
-   uint32_t gmsm = ('g' << 24) | ('m' << 16) | ('s' << 8) | 'm';
-   if (hnd->handle->numInts >= 2 && hnd->handle->data[hnd->handle->numFds] == gmsm) {
-      /* This UBWC flag was introduced in a5xx. */
+   /* Newer Qualcomm gralloc (Adreno 8xx / 8 Elite Gen 5) no longer stores
+    * the 'gmsm' magic, so requiring it left the modifier invalid and the
+    * swapchain was scanned out with the wrong tiling.
+    * The UBWC bit introduced in a5xx is still in the private flags word.
+    */
+   if (hnd->handle->numInts >= 2) {
       bool ubwc = hnd->handle->data[hnd->handle->numFds + 1] & 0x08000000;
       out->modifier = ubwc ? DRM_FORMAT_MOD_QCOM_COMPRESSED : DRM_FORMAT_MOD_LINEAR;
    }

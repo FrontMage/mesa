@@ -1,0 +1,23 @@
+export PATH="$HOME/.local/bin:$PATH"
+export PYTHONPATH="/usr/lib/python3/dist-packages:/tmp/deps/pydis/usr/lib/python3.8"
+unset PKG_CONFIG_PATH CC CXX
+cd /home/zxh/zxh/project/mesa
+meson setup build-android-aarch64 --reconfigure \
+  --cross-file "$HOME/opt/android-ndk-r27c/android-aarch64.txt" \
+  --wrap-mode=nodownload \
+  -Dplatforms=android \
+  -Dplatform-sdk-version=35 \
+  -Dandroid-stub=true \
+  -Dandroid-libbacktrace=disabled \
+  -Degl=disabled \
+  -Dgbm=disabled \
+  -Dllvm=disabled \
+  -Dxmlconfig=disabled \
+  -Dgallium-drivers=[] \
+  -Dvulkan-drivers=freedreno \
+  -Dfreedreno-kmds=kgsl
+ninja -C build-android-aarch64
+mkdir -p build-android-aarch64/apk/arm64-v8a
+"$HOME/opt/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" \
+  -o build-android-aarch64/apk/arm64-v8a/libvulkan_freedreno.so \
+  build-android-aarch64/src/freedreno/vulkan/libvulkan_freedreno.so
