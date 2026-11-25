@@ -264,19 +264,21 @@ tu_lrz_init_state(struct tu_cmd_buffer *cmd,
    cmd->state.lrz.image_view = view;
    cmd->state.lrz.store = att->store;
 
-   /* Reusing previous state doesn't work with FDM offset because the LRZ
-    * image is offsetted.
-    */
-   if ((view->image->vk.create_flags &
-        VK_IMAGE_CREATE_FRAGMENT_DENSITY_MAP_OFFSET_BIT_EXT) &&
-       !clears_depth) {
-      tu_lrz_invalidate(cmd, "FRAGMENT_DENSITY_MAP_OFFSET_BIT attachment used without depth attachment clear");
-      return;
-   }
+   if (!cmd->state.resuming) {
+      /* Reusing previous state doesn't work with FDM offset because the LRZ
+       * image is offsetted.
+       */
+      if ((view->image->vk.create_flags &
+           VK_IMAGE_CREATE_FRAGMENT_DENSITY_MAP_OFFSET_BIT_EXT) &&
+          !clears_depth) {
+         tu_lrz_invalidate(cmd, "FRAGMENT_DENSITY_MAP_OFFSET_BIT attachment used without depth attachment clear");
+         return;
+      }
 
-   if (!clears_depth && !att->load) {
-      tu_lrz_invalidate(cmd, "Depth attachment isn't loaded or cleared");
-      return;
+      if (!clears_depth && !att->load) {
+         tu_lrz_invalidate(cmd, "Depth attachment isn't loaded or cleared");
+         return;
+      }
    }
 
    cmd->state.lrz.valid = true;
@@ -408,6 +410,38 @@ tu_lrz_begin_resumed_renderpass(struct tu_cmd_buffer *cmd)
    }
 }
 TU_GENX(tu_lrz_begin_resumed_renderpass);
+
+/* Continue a suspend/resume chain that started in the same command buffer.
+ * Unlike a pre-chain resuming from an earlier command buffer, cmd->state.lrz
+ * already holds the initial pass's LRZ setup (reuse_previous_state, clear
+ * value, fast_clear, valid_at_start) and accumulated tracking state (valid,
+ * prev_direction, gpu_dir_set). Preserve it so tu_cmd_render() emits the
+ * initial pass's LRZ clear/flip instead of treating the chain as LOAD_OP_LOAD.
+ */
+void
+tu_lrz_continue_resumed_renderpass(struct tu_cmd_buffer *cmd)
+{
+   assert(cmd->state.suspend_resume != SR_AFTER_PRE_CHAIN);
+
+   if (cmd->state.lrz.image_view) {
+      for (uint32_t subpass_idx = 0;
+           subpass_idx < cmd->state.pass->subpass_count; subpass_idx++) {
+         const struct tu_subpass *subpass =
+            &cmd->state.pass->subpasses[subpass_idx];
+
+         if (subpass->custom_resolve)
+            continue;
+
+         uint32_t a = subpass->depth_stencil_attachment.attachment;
+         if (a != VK_ATTACHMENT_UNUSED) {
+            cmd->state.lrz.store = cmd->state.pass->attachments[a].store;
+            break;
+         }
+      }
+   }
+
+   cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+}
 
 template <chip CHIP>
 void

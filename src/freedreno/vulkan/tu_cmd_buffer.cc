@@ -7481,10 +7481,14 @@ tu_CmdBeginRendering(VkCommandBuffer commandBuffer,
        !cmd->device->physical_device->info->props.has_lrz_dir_tracking) {
       cmd->state.lrz.valid = false;
    } else {
-      if (resuming)
-         tu_lrz_begin_resumed_renderpass<CHIP>(cmd);
-      else
+      if (resuming) {
+         if (cmd->state.suspend_resume == SR_NONE)
+            tu_lrz_begin_resumed_renderpass<CHIP>(cmd);
+         else
+            tu_lrz_continue_resumed_renderpass(cmd);
+      } else {
          tu_lrz_begin_renderpass<CHIP>(cmd);
+      }
    }
 
    tu_renderpass_begin(cmd);

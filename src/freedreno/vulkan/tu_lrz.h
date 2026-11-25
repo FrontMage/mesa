@@ -81,6 +81,9 @@ void
 tu_lrz_begin_resumed_renderpass(struct tu_cmd_buffer *cmd);
 
 void
+tu_lrz_continue_resumed_renderpass(struct tu_cmd_buffer *cmd);
+
+void
 tu_lrz_begin_secondary_cmdbuf(struct tu_cmd_buffer *cmd);
 
 void
